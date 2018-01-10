@@ -61,14 +61,22 @@ class BloomFilter extends Exportable {
    * Constructor
    * @param {int} capacity - The filter capacity, i.e. the maximum number of elements it will contains
    * @param {number} errorRate - The error rate, i.e. 'false positive' rate, targeted by the filter
+   * @param {boolean} useBitFlag - Use BitFlag(0|1) as Filter Result instead True|False. This will reduce the size of the filter on large datasets
    */
-  constructor (capacity, errorRate) {
+  constructor (capacity, errorRate, useBitFlag) {
     super('BloomFilter', '_capacity', '_errorRate', '_size', '_length', '_nbHashes', '_filter')
     this._capacity = capacity
     this._errorRate = errorRate
     this._size = fm.optimalFilterSize(capacity, errorRate)
     this._nbHashes = fm.optimalHashes(this._size, capacity)
-    this._filter = utils.allocateArray(this._size, false)
+    this._falseValue = false
+    this._truthValue = true
+    if(useBitFlag){
+      this._truthValue = 1
+      this._falseValue = 0
+    }
+
+    this._filter = utils.allocateArray(this._size, this._falseValue)
     this._length = 0
   }
 
@@ -76,13 +84,14 @@ class BloomFilter extends Exportable {
    * Build a new Bloom Filter from an existing array with a fixed error rate
    * @param {Array} array - The array used to build the filter
    * @param {number} errorRate - The error rate, i.e. 'false positive' rate, targetted by the filter
+   * @param {boolean} useBitFlag - Use BitFlag(0|1) as Filter Result instead True|False. This will reduce the size of the filter on large datasets
    * @return {BloomFilter} A new Bloom Filter filled with iterable's elements
    * @example
    * // create a filter with a false positive rate of 0.1
    * const filter = BloomFilter.from(['alice', 'bob', 'carl'], 0.1);
    */
-  static from (array, errorRate) {
-    const filter = new BloomFilter(array.length, errorRate)
+  static from (array, errorRate, useBitFlag) {
+    const filter = new BloomFilter(array.length, errorRate, useBitFlag)
     array.forEach(element => filter.add(element))
     return filter
   }
@@ -90,14 +99,15 @@ class BloomFilter extends Exportable {
   /**
    * Create a new Bloom Filter from a JSON export
    * @param  {Object} json - A JSON export of a Bloom Filter
+   * @param {boolean} useBitFlag - Use BitFlag(0|1) as Filter Result instead True|False. This will reduce the size of the filter on large datasets
    * @return {BloomFilter} A new Bloom Filter
    */
-  static fromJSON (json) {
+  static fromJSON (json, useBitFlag) {
     if ((json.type !== 'BloomFilter') || !('_capacity' in json) || !('_errorRate' in json) ||
     !('_size' in json) || !('_length' in json) || !('_nbHashes' in json) || !('_filter' in json)) {
       throw new Error('Cannot create a BloomFilter from a JSON export which does not represent a bloom filter')
     }
-    const filter = new BloomFilter(json._capacity, json._errorRate)
+    const filter = new BloomFilter(json._capacity, json._errorRate,useBitFlag)
     filter._size = json._size
     filter._nbHashes = json._nbHashes
     filter._filter = json._filter.slice(0)
@@ -141,7 +151,7 @@ class BloomFilter extends Exportable {
     const hashes = utils.hashTwice(element, true)
 
     for (let i = 0; i < this._nbHashes; i++) {
-      this._filter[utils.doubleHashing(i, hashes.first, hashes.second, this._size)] = true
+      this._filter[utils.doubleHashing(i, hashes.first, hashes.second, this._size)] = this._truthValue
     }
     this._length++
   }
@@ -161,10 +171,10 @@ class BloomFilter extends Exportable {
 
     for (let i = 0; i < this._nbHashes; i++) {
       if (!this._filter[utils.doubleHashing(i, hashes.first, hashes.second, this._size)]) {
-        return false
+        return this._falseValue
       }
     }
-    return true
+    return this._truthValue
   }
 
   /**

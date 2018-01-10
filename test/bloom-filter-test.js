@@ -61,9 +61,25 @@ describe('BloomFilter', () => {
     })
 
     it('should return true for elements that might be in the set', () => {
+      console.log(filter.has('alice'));
       filter.has('alice').should.equal(true)
       filter.has('bob').should.equal(true)
       filter.has('carl').should.equal(true)
+    })
+  })
+
+  describe('#has using bigFlag', () => {
+    const filter = BloomFilter.from([ 'alice', 'bob', 'carl' ], targetRate, true)
+
+    it('should return false for elements that are definitively nt in the set', () => {
+      filter.has('daniel').should.equal(0)
+      filter.has('al').should.equal(0)
+    })
+
+    it('should return true for elements that might be in the set', () => {
+      filter.has('alice').should.equal(1)
+      filter.has('bob').should.equal(1)
+      filter.has('carl').should.equal(1)
     })
   })
 
